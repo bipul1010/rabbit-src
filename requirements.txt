@@ -1,0 +1,12 @@
+## Use python 3.9
+
+torch
+torchvision
+torchaudio
+torchtext
+datasets
+tokenizers
+torchmetrics
+altair
+wandb
+sentencepiece
