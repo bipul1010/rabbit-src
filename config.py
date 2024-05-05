@@ -34,7 +34,7 @@ def get_default_config() -> ModelArgs:
 
     return ModelArgs(
         vocab_size=48064,
-        train_batch_size=1,
+        train_batch_size=10,
         valid_batch_size=1,
         seq_len=1024,
         shift_len=100,

@@ -40,7 +40,7 @@ if __name__ == "__main__":
     print(tokenizer.n_words)
     print(tokenizer.n_words, tokenizer.bos_id, tokenizer.eos_id, tokenizer.pad_id)
 
-    text = f""".
+    text = f"""Once, there were two friends who were playing in the yard. One was clumsy and the other wasn't. The clumsy one said, â€œLetâ€™s catch a bug!â€ But the other one disagreed. The clumsy friend said, â€œWhy donâ€™t you want to catch a bug?â€ The other friend said, â€œBugs can be scary. Letâ€™s play hide and seek instead.â€ The clumsy one disagreed. â€œNo, letâ€™s catch a bug!â€ Then, the two friends had an idea. They decided to play both games. First, they would catch a bug and then after, they would play hide and seek in the yard. They ran around the yard, chasing the bugs and having lots of fun. The clumsy one ran clumsily and the other one ran quicker and caught more bugs. The two friends laughed and played together until they were tired. They went home feeling happy and excited.
 """
     print(text)
     print(len(text.split()))

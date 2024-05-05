@@ -9,7 +9,7 @@ class Cache(nn.Module):
         cache_shape = (
             args.train_batch_size,
             args.n_kv_heads,
-            args.seq_len * 2,
+            args.seq_len * 3,
             args.heads_dim,
         )
 

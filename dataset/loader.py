@@ -1,11 +1,14 @@
+import random
 import pandas as pd
 from torch.serialization import load
 from dataset.wikidataset import WikipediaDataset
+from dataset.tinystories import TinyStoriesDataset
 from config import ModelArgs
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from rabbit.tokenizer import Tokenizer
 from pathlib import Path
+from torch.utils.data import random_split
 
 
 class Loader:
@@ -65,6 +68,40 @@ class Loader:
             setattr(self, split, loader)
         return self
 
+    def tinystories(self):
+        ds = load_dataset("roneneldan/TinyStories")
+
+        def collate_fun(batch):
+            output = dict()
+            for key in batch[0]:
+                output[key] = []
+                for item in batch:
+                    output[key].append(item[key])
+            return output
+
+        for split in ["train", "validation"]:
+
+            ds_subset_size = int(len(ds[split]) * 0.1)
+            remaining_ds = len(ds[split]) - ds_subset_size
+
+            ds_raw = random_split(ds[split], [ds_subset_size, remaining_ds])
+
+            new_ds = TinyStoriesDataset(
+                ds_raw[0], tokenizer=self.tokenizer, seq_len=self.config.seq_len
+            )
+            print(f"{split}: ", len(new_ds))
+            loader = DataLoader(
+                new_ds,
+                batch_size=self.get_bs(split),
+                shuffle=True,
+                collate_fn=collate_fun,
+            )
+            setattr(self, split, loader)
+
+        self.test = self.validation
+
+        return self
+
 
 if __name__ == "__main__":
     import torch
@@ -72,27 +109,27 @@ if __name__ == "__main__":
 
     k = get_default_config()
     tokenizer = Tokenizer(model_path=str(Path(".") / k.tokenizer_file))
-    loader = Loader(config=k, tokenizer=tokenizer).wikipedia()
-    random_iter = torch.randint(0, len(loader.validation), (1,))
+    loader = Loader(config=k, tokenizer=tokenizer).tinystories()
+    # random_iter = torch.randint(0, len(loader.validation), (1,))
 
     # print(random_iter[0])
     # x = loader.validation[random_iter[0]]
     # for x in loader.train:
     for k in range(4):
         print(f"K:{k}")
-        for x in loader.validation:
+        for x in loader.test:
             input_sequences = torch.tensor(x["input_sequences"])
             output_sequences = torch.tensor(x["output_sequences"])
 
             print(input_sequences.shape, output_sequences.shape)
             print("Input Seq==\n\n")
-            print(input_sequences[-2:, 900:1000])
+            print(input_sequences[-2:, 0:200])
             print("Output Seq==\n\n")
-            print(output_sequences[-2:, 900:1000])
+            print(output_sequences[-2:, 0:200])
 
             print("Input Seq Decode==\n\n")
-            print(tokenizer.decode(input_sequences[-1, 900:1000].tolist()))
+            print(tokenizer.decode(input_sequences[-1, 0:200].tolist()))
 
             print("Output Seq Decode==\n\n")
-            print(tokenizer.decode(output_sequences[-1, 900:1000].tolist()))
+            print(tokenizer.decode(output_sequences[-1, 0:200].tolist()))
             break

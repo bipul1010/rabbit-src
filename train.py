@@ -2,6 +2,7 @@ import math
 import random
 from pathlib import Path
 from torch._C import BenchmarkConfig
+from torch.serialization import load
 from torch.utils.data import DataLoader
 import wandb
 import torch
@@ -22,7 +23,7 @@ from contextlib import nullcontext
 class TrainArgs:
     start_from = "scratch"
     checkpoint = -1
-    training_dataset = "wikipedia"
+    training_dataset = "tinystories"
     learning_rate = 6e-4
     min_lr = 6e-5
     warmup_iters = 2000
@@ -117,7 +118,7 @@ def view_predicted_tokens(
     line_seperation = "+" * 100
     print_idx = 0
     for test_batch in test_dataloader:
-        if print_idx > no_prints:
+        if print_idx >= no_prints:
             break
         x = torch.tensor(test_batch["input_sequences"])
 
@@ -140,6 +141,7 @@ def view_predicted_tokens(
             top_k=None,
             pad_token_id=tokenizer.pad_id,
             eos_token_id=tokenizer.eos_id,
+            max_length=1024,
         )
         print_idx += 1
 
@@ -186,6 +188,8 @@ def train(
     loader = Loader(config=args, tokenizer=tokenizer)
     if train_args.training_dataset == "wikipedia":
         dataloader = loader.wikipedia()
+    elif train_args.training_dataset == "tinystories":
+        dataloader = loader.tinystories()
 
     train_dataloader, val_dataloader = dataloader.train, dataloader.validation
     val_dataloader_batches = []

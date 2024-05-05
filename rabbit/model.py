@@ -178,7 +178,7 @@ class Transformer(nn.Module):
         )  # https://paperswithcode.com/method/weight-tying
 
         self.freq_cis = precompute_theta_pos(
-            dim=args.heads_dim, seq_len=args.seq_len * 2
+            dim=args.heads_dim, seq_len=args.seq_len * 3
         ).to(args.device)
         self.args = args
         self.apply(self._init_weights_)
@@ -287,7 +287,9 @@ class Transformer(nn.Module):
         input_pos = 0
         temperature = max(temperature, 0.1)
         n_max_tokens = (
-            min(max_length, self.args.seq_len) if max_length >= 0 else self.args.seq_len
+            min(max_length, self.args.seq_len * 3)
+            if max_length >= 0
+            else self.args.seq_len * 3
         )
         mask = True
 
@@ -308,7 +310,10 @@ class Transformer(nn.Module):
                 logits[logits < v[:, [-1]]] = float("-inf")
 
             probs = F.softmax(logits, dim=-1)  # (b,vocab)
-            next_token = torch.multinomial(probs, num_samples=1)  # (b,1)
+            if top_k is not None:
+                next_token = torch.multinomial(probs, num_samples=1)  # (b,1)
+            else:
+                next_token = torch.argmax(probs, dim=-1).unsqueeze(0)
             next_token_id = next_token[:, 0][
                 0
             ]  ##just assuming as of now we are getting one batch.
@@ -318,7 +323,7 @@ class Transformer(nn.Module):
             input_pos = prompt_tokens.shape[1]
             prompt_tokens = torch.cat([prompt_tokens, next_token], dim=1)
             mask = False
-            if next_token_id == eos_token_id:
+            if next_token_id == eos_token_id or x.numel() == 0:
                 break
 
         return prompt_tokens
