@@ -1,8 +1,6 @@
 import math
 import random
 from pathlib import Path
-from torch._C import BenchmarkConfig
-from torch.serialization import load
 from torch.utils.data import DataLoader
 import wandb
 import torch
@@ -27,14 +25,17 @@ class TrainArgs:
     learning_rate = 6e-4
     min_lr = 6e-5
     warmup_iters = 2000
-    lr_decay_iters = 60000
+    lr_decay_iters = 25000
     weight_decay = 1e-1
-    epochs = 30
+    epochs = 200
     is_lr_flexible = True
-    eval_iter = 1
+    eval_iter = 2
     mini_batch_size = 4
     num_mini_batches_for_train = 4
     compile = False
+    wandb_log = True
+    wandb_project = "rabbit_350"
+    wandb_run_name = "rabbit_tinystories"
 
 
 def get_lr(global_iter, train_args: TrainArgs):
@@ -93,8 +94,8 @@ def estimate_loss(
             val_batch["output_sequences"]
         )
 
-        x = x[:6].to(device)
-        y = y[:6].to(device)
+        x = x.to(device)
+        y = y.to(device)
 
         with autocast:
             _, loss = model.forward(
@@ -243,6 +244,9 @@ def train(
         global_iter = checkpoint["global_iter"] + 1
         del checkpoint
 
+    if train_args.wandb_log is True:
+        wandb.init(project=train_args.wandb_project, name=train_args.wandb_run_name)
+
     for epoch in range(initial_epoch, train_args.epochs):
         torch.cuda.empty_cache()
         model.train()
@@ -253,7 +257,7 @@ def train(
         for training_batch in batch_iterator:
             # x,y -> (b,seq)
             # index += 1
-            # if index >= 4:
+            # if index >= 11:
             #     break
             input_x, target_y = torch.tensor(
                 training_batch["input_sequences"]
@@ -276,6 +280,7 @@ def train(
                 x = input_x[start_idx:end_idx].to(device)
                 y = target_y[start_idx:end_idx].to(device)
 
+                # x, y = input_x.to(device), target_y.to(device)
                 if x.size(0) == 0 or y.size(0) == 0:
                     continue  # Skip if there are no data points to process
 
@@ -304,7 +309,7 @@ def train(
 
             global_iter += 1
 
-            if global_iter % 1000 == 0:
+            if global_iter % 2000 == 0:
                 ##check some predicted tokens , how the model is learning.
                 view_predicted_tokens(
                     model=model,
@@ -314,23 +319,34 @@ def train(
                     print_msg=lambda msg: batch_iterator.write(msg),
                 )
 
-        train_val_losses = estimate_loss(
-            model=model,
-            train_losses=losses,
-            val_dataloader=val_dataloader,
-            eval_iter=train_args.eval_iter,
-            device=device,
-            pad_token_id=tokenizer.pad_id,
-            autocast=precision_auto_ctx,
-        )
+                train_val_losses = estimate_loss(
+                    model=model,
+                    train_losses=losses,
+                    val_dataloader=val_dataloader,
+                    eval_iter=train_args.eval_iter,
+                    device=device,
+                    pad_token_id=tokenizer.pad_id,
+                    autocast=precision_auto_ctx,
+                )
 
-        batch_iterator.write(
-            f"Epoch:{epoch} | Global Iteration: {global_iter} | Train Loss: {train_val_losses['train']} | Val Loss: {train_val_losses['val']}"
-        )
+                if train_args.wandb_log is True:
+                    wandb.log(
+                        {
+                            "iter": global_iter,
+                            "train/loss": train_val_losses["train"],
+                            "val/loss": train_val_losses["val"],
+                            "lr": lr,
+                        }
+                    )
+
+                batch_iterator.write(
+                    f"Epoch:{epoch} | Global Iteration: {global_iter} | Train Loss: {train_val_losses['train']} | Val Loss: {train_val_losses['val']}"
+                )
 
         ## save the model
         model_filename = get_ckpt_model_path(args=args, iter=epoch)
-        if epoch % 5 == 0:
+
+        if epoch % 10 == 0:
             torch.save(
                 {
                     "epoch": epoch,
