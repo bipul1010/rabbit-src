@@ -10,17 +10,6 @@ class WikipediaDataset(Dataset):
         self.seq_len = seq_len
         self.shift_len = shift_len
 
-    def _generate_split_indices(self, text_tokens: list):
-        start_indices = []
-
-        for i in range(0, len(text_tokens), self.shift_len):
-            start_indices.append(i)
-
-            if text_tokens[i : i + self.seq_len][-1] == self.tokenizer.eos_id:
-                break
-
-        return start_indices
-
     def _expand_with_padding(self, tokenized_list: list):
         if len(tokenized_list) < self.seq_len:
             padding_len = self.seq_len - len(tokenized_list)
@@ -37,11 +26,7 @@ class WikipediaDataset(Dataset):
 
         text = self.ds[index]
         text_tokens = self.tokenizer.encode(s=text)
-        text_tokens = [self.tokenizer.bos_id] + text_tokens + [self.tokenizer.eos_id]
-        # print(f"Index: {index} | Length of Tokens: {len(text_tokens)}")
-
-        start_indices = self._generate_split_indices(text_tokens)
-        # print(f"Length of start_indices :{len(start_indices)}")
+        start_indices = [i for i in range(0, len(text_tokens), self.shift_len)]
 
         input_sequences = []
         output_sequences = []

@@ -1,8 +1,6 @@
 from pathlib import Path
 from dataclasses import dataclass
 
-from torch._C import device
-
 
 @dataclass
 class ModelArgs:
@@ -35,9 +33,9 @@ def get_default_config() -> ModelArgs:
     return ModelArgs(
         vocab_size=48064,
         train_batch_size=12,
-        valid_batch_size=2,
+        valid_batch_size=1,
         seq_len=1024,
-        shift_len=100,
+        shift_len=1000,
         no_layers=16,
         dim=1024,
         n_heads=16,

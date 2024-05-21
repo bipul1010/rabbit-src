@@ -4,7 +4,6 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 import wandb
 import torch
-import torch.nn.functional as F
 from config import ModelArgs
 from rabbit.model import Transformer
 from rabbit.tokenizer import Tokenizer
@@ -21,7 +20,7 @@ from contextlib import nullcontext
 class TrainArgs:
     start_from = "scratch"
     checkpoint = -1
-    training_dataset = "tinystories"
+    training_dataset = "wikipedia"
     learning_rate = 6e-4
     min_lr = 6e-5
     warmup_iters = 2000
@@ -30,12 +29,12 @@ class TrainArgs:
     epochs = 200
     is_lr_flexible = True
     eval_iter = 2
-    mini_batch_size = 4
-    num_mini_batches_for_train = 4
+    mini_batch_size = 6
+    num_mini_batches_for_train = 6
     compile = False
     wandb_log = True
     wandb_project = "rabbit_350"
-    wandb_run_name = "rabbit_tinystories"
+    wandb_run_name = "rabbit_wikipedia"
 
 
 def get_lr(global_iter, train_args: TrainArgs):
@@ -245,7 +244,11 @@ def train(
         del checkpoint
 
     if train_args.wandb_log is True:
-        wandb.init(project=train_args.wandb_project, name=train_args.wandb_run_name)
+        wandb.init(
+            project=train_args.wandb_project,
+            name=train_args.wandb_run_name,
+            resume="allow",
+        )
 
     for epoch in range(initial_epoch, train_args.epochs):
         torch.cuda.empty_cache()
@@ -311,13 +314,16 @@ def train(
 
             if global_iter % 2000 == 0:
                 ##check some predicted tokens , how the model is learning.
-                view_predicted_tokens(
-                    model=model,
-                    test_dataloader=dataloader.test,
-                    device=device,
-                    tokenizer=tokenizer,
-                    print_msg=lambda msg: batch_iterator.write(msg),
-                )
+                try:
+                    view_predicted_tokens(
+                        model=model,
+                        test_dataloader=dataloader.test,
+                        device=device,
+                        tokenizer=tokenizer,
+                        print_msg=lambda msg: batch_iterator.write(msg),
+                    )
+                except Exception as e:
+                    print(f"Error while predicting tokens: {e}")
 
                 train_val_losses = estimate_loss(
                     model=model,
@@ -346,16 +352,15 @@ def train(
         ## save the model
         model_filename = get_ckpt_model_path(args=args, iter=epoch)
 
-        if epoch % 10 == 0:
-            torch.save(
-                {
-                    "epoch": epoch,
-                    "global_iter": global_iter,
-                    "model": model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                },
-                model_filename,
-            )
+        torch.save(
+            {
+                "epoch": epoch,
+                "global_iter": global_iter,
+                "model": model.state_dict(),
+                "optimizer": optimizer.state_dict(),
+            },
+            model_filename,
+        )
 
 
 if __name__ == "__main__":

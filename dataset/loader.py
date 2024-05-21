@@ -58,9 +58,10 @@ class Loader:
                 shift_len=self.config.shift_len,
             )
             # print(f"Dataset Length: {len(df_raw)}")
+            batch_size = 1 if split == "train" else self.get_bs(split)
             loader = DataLoader(
                 new_ds,
-                batch_size=self.get_bs(split),
+                batch_size=batch_size,
                 shuffle=True,
                 collate_fn=collate_fun,
             )
@@ -109,19 +110,21 @@ if __name__ == "__main__":
 
     k = get_default_config()
     tokenizer = Tokenizer(model_path=str(Path(".") / k.tokenizer_file))
-    loader = Loader(config=k, tokenizer=tokenizer).tinystories()
+    loader = Loader(config=k, tokenizer=tokenizer).wikipedia()
     # random_iter = torch.randint(0, len(loader.validation), (1,))
 
     # print(random_iter[0])
     # x = loader.validation[random_iter[0]]
     # for x in loader.train:
+    batch_length = []
     for k in range(4):
         print(f"K:{k}")
-        for x in loader.test:
+        for x in loader.train:
             input_sequences = torch.tensor(x["input_sequences"])
             output_sequences = torch.tensor(x["output_sequences"])
 
             print(input_sequences.shape, output_sequences.shape)
+            batch_length.append(input_sequences.shape[0])
             print("Input Seq==\n\n")
             print(input_sequences[-2:, 0:200])
             print("Output Seq==\n\n")
@@ -133,3 +136,7 @@ if __name__ == "__main__":
             print("Output Seq Decode==\n\n")
             print(tokenizer.decode(output_sequences[-1, 0:200].tolist()))
             break
+
+    print(
+        f"Max _length: {max(batch_length)} | Avg Length: {sum(batch_length) / len(batch_length)}"
+    )
