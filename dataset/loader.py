@@ -1,14 +1,14 @@
-import random
 import pandas as pd
-from torch.serialization import load
 from dataset.wikidataset import WikipediaDataset
 from dataset.tinystories import TinyStoriesDataset
+from dataset.dahoas_fine_tune import DahosDataset
 from config import ModelArgs
 from datasets import load_dataset
 from torch.utils.data import DataLoader
 from rabbit.tokenizer import Tokenizer
 from pathlib import Path
 from torch.utils.data import random_split
+from utils import apply_chat_template
 
 
 class Loader:
@@ -103,14 +103,50 @@ class Loader:
 
         return self
 
+    def dahoas(self):
+        ds = load_dataset("Dahoas/static-hh")
+
+        def collate_fun(batch):
+            output = dict()
+            for key in ["input_sequences", "output_sequences"]:
+                output[key] = []
+                for item in batch:
+                    if item.get(key):
+                        output[key].append(item[key])
+            return output
+
+        for split in ["train", "test"]:
+            # new_ds = DahosDataset(
+            #     ds[split], tokenizer=self.tokenizer, seq_len=self.config.seq_len
+            # )
+            print(f"{split}: {len(ds[split])}")
+
+            new_ds = DahosDataset(
+                ds[split], tokenizer=self.tokenizer, seq_len=self.config.seq_len
+            )
+
+            loader = DataLoader(
+                new_ds,
+                batch_size=self.get_bs(split),
+                shuffle=True,
+                collate_fn=collate_fun,
+            )
+
+            setattr(self, split, loader)
+
+        self.validation = self.test
+        return self
+
 
 if __name__ == "__main__":
+    import sys
     import torch
     from config import get_default_config
 
     k = get_default_config()
     tokenizer = Tokenizer(model_path=str(Path(".") / k.tokenizer_file))
-    loader = Loader(config=k, tokenizer=tokenizer).wikipedia()
+    loader = Loader(config=k, tokenizer=tokenizer).dahoas()
+    # sys.exit()
     # random_iter = torch.randint(0, len(loader.validation), (1,))
 
     # print(random_iter[0])
@@ -126,15 +162,15 @@ if __name__ == "__main__":
             print(input_sequences.shape, output_sequences.shape)
             batch_length.append(input_sequences.shape[0])
             print("Input Seq==\n\n")
-            print(input_sequences[-2:, 0:200])
+            print(input_sequences[-2, 0::200])
             print("Output Seq==\n\n")
             print(output_sequences[-2:, 0:200])
 
             print("Input Seq Decode==\n\n")
-            print(tokenizer.decode(input_sequences[-1, 0:200].tolist()))
+            print(tokenizer.decode(input_sequences[-2].tolist()))
 
             print("Output Seq Decode==\n\n")
-            print(tokenizer.decode(output_sequences[-1, 0:200].tolist()))
+            print(tokenizer.decode(output_sequences[-2].tolist()))
             break
 
     print(

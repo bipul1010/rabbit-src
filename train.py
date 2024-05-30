@@ -20,9 +20,9 @@ from contextlib import nullcontext
 class TrainArgs:
     start_from = "scratch"
     checkpoint = -1
-    training_dataset = "wikipedia"
-    learning_rate = 6e-4
-    min_lr = 6e-5
+    training_dataset = "dahoas"
+    learning_rate = 3.6e-4
+    min_lr = 6e-6
     warmup_iters = 2000
     lr_decay_iters = 25000
     weight_decay = 1e-1
@@ -30,11 +30,11 @@ class TrainArgs:
     is_lr_flexible = True
     eval_iter = 2
     mini_batch_size = 6
-    num_mini_batches_for_train = 6
+    num_mini_batches_for_train = 30
     compile = False
     wandb_log = True
     wandb_project = "rabbit_350"
-    wandb_run_name = "rabbit_wikipedia"
+    wandb_run_name = "rabbit_dahoas_resumed"
 
 
 def get_lr(global_iter, train_args: TrainArgs):
@@ -190,6 +190,8 @@ def train(
         dataloader = loader.wikipedia()
     elif train_args.training_dataset == "tinystories":
         dataloader = loader.tinystories()
+    elif train_args.training_dataset == "dahoas":
+        dataloader = loader.dahoas()
 
     train_dataloader, val_dataloader = dataloader.train, dataloader.validation
     val_dataloader_batches = []
@@ -241,6 +243,9 @@ def train(
         optimizer.load_state_dict(checkpoint["optimizer"])
         initial_epoch = checkpoint["epoch"] + 1
         global_iter = checkpoint["global_iter"] + 1
+
+        train_args.warmup_iters = global_iter
+        train_args.lr_decay_iters = global_iter + 334000
         del checkpoint
 
     if train_args.wandb_log is True:
